@@ -104,11 +104,7 @@ def double_hash_encode_ngrams_non_singular(ngrams,          # type: Iterable[str
     bf.setall(False)
     for m in ngrams:
         sha1hm = int(hmac.new(key_sha1, m.encode(), sha1).hexdigest(), 16) % l
-        md5hm = int(hmac.new(key_md5, m.encode(), md5).hexdigest(), 16) % l
-        i = 0
-        while md5hm == 0:
-            md5hm = int(hmac.new(key_md5, m.encode() + chr(i).encode(), md5).hexdigest(), 16) % l
-            i += 1
+        md5hm = (int(hmac.new(key_md5, m.encode(), md5).hexdigest(), 16) % (l-1)) + 1  # 1 <= md5hm < l
         for i in range(k):
             gi = (sha1hm + i * md5hm) % l
             bf[gi] = 1
