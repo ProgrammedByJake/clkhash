@@ -1,7 +1,12 @@
 import unittest
+
+import os
+
+import clk
 from clkhash import randomnames, bloomfilter
 from clkhash.key_derivation import generate_key_lists
 from clkhash.identifier_types import IdentifierType
+from schema import load_schema, get_schema_types
 
 
 class TestNamelistHashable(unittest.TestCase):
@@ -50,3 +55,28 @@ class TestHashingWithDifferentWeights(unittest.TestCase):
         self.assertGreater(n2, n15)
         self.assertLessEqual(n15, round(n1*1.5))
         self.assertLessEqual(n2, n1*2)
+
+
+class TestHashingWithSchema(unittest.TestCase):
+    def test_hash_data_using_febrl_schema(self):
+        schema_file_name = os.path.join(
+            os.path.dirname(__file__),
+            'testdata/febrl-schema.json'
+        )
+
+        csv_file_name = os.path.join(
+            os.path.dirname(__file__),
+            'testdata/dirty_1000_50_1.csv'
+        )
+
+        schema_types = get_schema_types(load_schema(open(schema_file_name, 'r')))
+
+        clk_data = clk.generate_clk_from_csv(open(csv_file_name, 'r'), ('horse', 'staple'), schema_types)
+
+        import base64
+        import bitarray
+        ba = bitarray.bitarray()
+        ba.frombytes(base64.b64decode(clk_data[0]))
+
+        print(ba)
+        print(ba.count())
