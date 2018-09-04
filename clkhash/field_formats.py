@@ -80,8 +80,8 @@ class FieldHashingProperties(object):
 
     def __init__(self,
                  ngram,  # type: int
+                 num_bits,  # type: int
                  encoding=_DEFAULT_ENCODING,  # type: str
-                 weight=_DEFAULT_WEIGHT,  # type: Union[int, float]
                  positional=_DEFAULT_POSITIONAL,  # type: bool
                  missing_value=None  # type: Optional[MissingValueSpec]
                  ):
@@ -99,14 +99,14 @@ class FieldHashingProperties(object):
             msg = '{} is not a valid Python encoding.'
             raise_from(ValueError(msg.format(encoding)), e)
 
-        if weight < 0:
-            msg = 'weight should be non-negative but is {}.'
-            raise ValueError(msg.format(weight))
+        if num_bits < 0:
+            msg = 'num_bits should be non-negative but is {}.'
+            raise ValueError(msg.format(num_bits))
 
         self.ngram = ngram
         self.encoding = encoding
         self.positional = positional
-        self.weight = weight
+        self.num_bits = num_bits
         self.missing_value = missing_value
 
     def replace_missing_value(self, str_in):
@@ -141,8 +141,7 @@ class FieldHashingProperties(object):
             ngram=json_dict['ngram'],
             positional=json_dict.get(
                 'positional', FieldHashingProperties._DEFAULT_POSITIONAL),
-            weight=json_dict.get(
-                'weight', FieldHashingProperties._DEFAULT_WEIGHT),
+            num_bits=json_dict['numBits'],
             missing_value=MissingValueSpec.from_json_dict(
                 json_dict['missingValue']) if 'missingValue' in json_dict else None)
 
@@ -750,7 +749,7 @@ class Ignore(FieldSpec):
         # type: (...) -> None
         # noinspection PyCompatibility
         super().__init__('' if identifier is None else identifier,
-                         FieldHashingProperties(ngram=0, weight=0))
+                         FieldHashingProperties(ngram=0, num_bits=0))
 
     def validate(self, str_in):
         pass

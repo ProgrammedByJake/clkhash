@@ -18,13 +18,7 @@
   "features": [
     {
       "identifier": "INDEX",
-      "format": {
-        "type": "integer"
-      },
-      "hashing": {
-        "ngram": 1,
-        "weight": 0
-      }
+      "ignored": true
     },
     {
       "identifier": "NAME freetext",
@@ -36,7 +30,7 @@
       },
       "hashing": {
         "ngram": 2,
-        "weight": 0.5
+        "numBits": 200
       }
     },
     {
@@ -48,7 +42,8 @@
       },
       "hashing": {
         "ngram": 1,
-        "positional": true
+        "positional": true,
+        "numBits": 200
       }
     },
     {
@@ -59,7 +54,7 @@
       },
       "hashing": {
         "ngram": 1,
-        "weight": 2
+        "numBits": 200
       }
     }
   ]

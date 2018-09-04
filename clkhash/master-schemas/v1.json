@@ -165,11 +165,11 @@
     },
     "hashingConfig": {
       "type": "object",
-      "required": ["ngram"],
+      "required": ["ngram", "numBits"],
       "properties": {
         "ngram": {"type": "integer", "minimum": 0, "default": 2},
         "positional": {"type": "boolean", "default": false},
-        "weight": {"type": "number", "minimum": 0, "default": 1},
+        "numBits": {"type": "integer", "minimum": 0},
         "missingValue": {"$ref": "#/definitions/missingValue"}
       }
     },
