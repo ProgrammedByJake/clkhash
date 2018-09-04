@@ -46,11 +46,12 @@ def cli():
 @click.argument('keys', nargs=2, type=click.Tuple([str, str]))
 @click.argument('schema', type=click.File('r', lazy=True))
 @click.argument('output', type=click.File('w'))
+@click.argument('mask_output', type=click.File('w'))
 @click.option('-q', '--quiet', default=False, is_flag=True, help="Quiet any progress messaging")
 @click.option('--no-header', default=False, is_flag=True, help="Don't skip the first row")
 @click.option('--check-header', default=True, type=bool, help="If true, check the header against the schema")
 @click.option('--validate', default=True, type=bool, help="If true, validate the entries against the schema")
-def hash(input, keys, schema, output, quiet, no_header, check_header, validate):
+def hash(input, keys, schema, output, mask_output, quiet, no_header, check_header, validate):
     """Process data to create CLKs
 
     Given a file containing csv data as INPUT, and a json
@@ -74,7 +75,7 @@ def hash(input, keys, schema, output, quiet, no_header, check_header, validate):
         header = False
 
     try:
-        clk_data = clk.generate_clk_from_csv(
+        clk_data, clk_masks = clk.generate_clk_from_csv(
             input, keys, schema_object,
             validate=validate,
             header=header,
@@ -85,6 +86,7 @@ def hash(input, keys, schema, output, quiet, no_header, check_header, validate):
         log('Hashing failed.')
     else:
         json.dump({'clks': clk_data}, output)
+        json.dump({'mvMasks': clk_masks}, mask_output)
         if hasattr(output, 'name'):
             log("CLK data written to {}".format(output.name))
 

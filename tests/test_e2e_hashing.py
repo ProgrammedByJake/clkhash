@@ -45,7 +45,7 @@ class TestHashingWithDifferentWeights(unittest.TestCase):
                 kdf_salt=base64.b64decode('SCbL2zHNnmsckfzchsNkZY9XoHk96P/G5nUBrM7ybymlEFsMV6PAeDZCNp3rfNUPCtLDMOGQHG4pCQpfhiHCyA=='),
                 kdf_type='HKDF',
                 l=1024,
-                hash_type='blakeHash',
+                hash_type='doubleHash',
                 xor_folds=0,
             ),
             fields=[
@@ -55,7 +55,7 @@ class TestHashingWithDifferentWeights(unittest.TestCase):
                         encoding=FieldHashingProperties._DEFAULT_ENCODING,
                         ngram=2,
                         positional=False,
-                        weight=1
+                        num_bits=100
                     ),
                     description=None,
                     case=StringSpec._DEFAULT_CASE,
@@ -66,24 +66,27 @@ class TestHashingWithDifferentWeights(unittest.TestCase):
         )
 
         pii = [['Deckard']]
-        keys = generate_key_lists(('secret',), 1)
+        keys = generate_key_lists(('secret', 'sauce'), 1)
 
-        schema.fields[0].hashing_properties.weight = 0
+        schema.fields[0].hashing_properties.num_bits = 0
         bf0 = next(bloomfilter.stream_bloom_filters(pii, keys, schema))
 
-        schema.fields[0].hashing_properties.weight = 1
+        schema.fields[0].hashing_properties.num_bits = 100
         bf1 = next(bloomfilter.stream_bloom_filters(pii, keys, schema))
 
-        schema.fields[0].hashing_properties.weight = 2
+        schema.fields[0].hashing_properties.num_bits = 200
         bf2 = next(bloomfilter.stream_bloom_filters(pii, keys, schema))
 
-        schema.fields[0].hashing_properties.weight = 1.5
+        schema.fields[0].hashing_properties.num_bits = 150
         bf15 = next(bloomfilter.stream_bloom_filters(pii, keys, schema))
 
         self.assertEqual(bf0[0].count(), 0)
         n1 = bf1[0].count()
         n2 = bf2[0].count()
         n15 = bf15[0].count()
+        self.assertLess(n1, 101)
+        self.assertLess(n2, 201)
+        self.assertLess(n15, 150)
         self.assertGreater(n1, 0)
         self.assertGreater(n15, n1)
         self.assertGreater(n2, n15)

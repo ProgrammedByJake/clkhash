@@ -32,7 +32,7 @@ except ImportError:
 
 def double_hash_encode_ngrams(ngrams,   # type: Iterable[str]
                               keys,     # type: Sequence[bytes]
-                              k,        # type: int
+                              num_bits,  # type: int
                               l,        # type: int
                               encoding  # type: str
                               ):
@@ -44,7 +44,7 @@ def double_hash_encode_ngrams(ngrams,   # type: Iterable[str]
 
         :param ngrams: list of n-grams to be encoded
         :param keys: hmac secret keys for md5 and sha1 as bytes
-        :param k: number of hash functions to use per element of the ngrams
+        :param num_bits: total number of bits to be set for this sequence of ngrams.
         :param l: length of the output bitarray
         :param encoding: the encoding to use when turning the ngrams to bytes
 
@@ -53,8 +53,13 @@ def double_hash_encode_ngrams(ngrams,   # type: Iterable[str]
     key_sha1, key_md5 = keys
     bf = bitarray(l)
     bf.setall(False)
+    ngrams = [ngram for ngram in ngrams]
+    num_ngrams = len(ngrams)
+    ks = [int(math.floor(num_bits / num_ngrams))] * num_ngrams
+    residue = num_bits % num_ngrams
+    ks = [k + 1 if i < residue else k for i, k in enumerate(ks)]
 
-    for m in ngrams:
+    for m, k in zip(ngrams, ks):
         sha1hm = int(hmac.new(key_sha1, m.encode(encoding=encoding), sha1).hexdigest(), 16) % l
         md5hm = int(hmac.new(key_md5, m.encode(encoding=encoding), md5).hexdigest(), 16) % l
         for i in range(k):
@@ -283,11 +288,15 @@ def crypto_bloom_filter(record,  # type: Sequence[Text]
                         keys,  # type: Sequence[Sequence[bytes]]
                         hash_properties  # type: GlobalHashingProperties
                         ):
-    # type: (...) -> Tuple[bitarray, Text, int]
+    # type: (...) -> Tuple[bitarray, bitarray, int]
     """ Computes the composite Bloom filter encoding of a record.
 
-        Using the method from
+        Using a modified method from
         http://www.record-linkage.de/-download=wp-grlc-2011-02.pdf
+        instead of having a fixed k value for each n-gram, we now have a fixed
+        number of bits to set for each feature. Thus we dynamically adjust the
+        k value for each n-gram to add up the total number of bits for that
+        specific feature.
 
         :param record: plaintext record tuple. E.g. (index, name, dob, gender)
         :param tokenizers: A list of tokenizers. A tokenizer is a function that
@@ -298,7 +307,7 @@ def crypto_bloom_filter(record,  # type: Sequence[Text]
 
         :return: 3-tuple:
                 - bloom filter for record as a bitarray
-                - first element of record (usually an index)
+                - a bit mask indicating which features are contained in the bloom filter
                 - number of bits set in the bloomfilter
     """
     xor_folds = hash_properties.xor_folds
@@ -309,27 +318,35 @@ def crypto_bloom_filter(record,  # type: Sequence[Text]
     bloomfilter = bitarray(hash_l)
     bloomfilter.setall(False)
 
-    for (entry, tokenize, field, key) \
-            in zip(record, tokenizers, fields, keys):
+    mv_mask = bitarray(len(fields))
+    mv_mask.setall(False)
+
+    for i, (entry, tokenize, field, key) \
+            in enumerate(zip(record, tokenizers, fields, keys)):
         hash_props = field.hashing_properties
-
+        if hash_props.num_bits == 0:
+            continue
         ngrams = tokenize(field.format_value(entry))
+        ngrams = [x for x in ngrams]
+        if len(ngrams) > 0:
+            mv_mask[i] = True
 
-        adjusted_k = int(round(hash_props.weight * hash_k))
+            #adjusted_k = int(round(hash_props.weight * hash_k))
+            num_bits = hash_props.num_bits
 
-        bloomfilter |= hash_function(
-            ngrams, key, adjusted_k, hash_l, hash_props.encoding)
+            bloomfilter |= hash_function(
+                ngrams, key, num_bits, hash_l, hash_props.encoding)
 
     bloomfilter = fold_xor(bloomfilter, xor_folds)
 
-    return bloomfilter, record[0], bloomfilter.count()
+    return bloomfilter, mv_mask, bloomfilter.count()
 
 
 def stream_bloom_filters(dataset,  # type: Iterable[Sequence[Text]]
                          keys,  # type: Sequence[Sequence[bytes]]
                          schema  # type: Schema
                          ):
-    # type: (...) -> Iterable[Tuple[bitarray, Text, int]]
+    # type: (...) -> Iterable[Tuple[bitarray, bitarray, int]]
     """ Compute composite Bloom filters (CLKs) for every record in an iterable dataset.
 
         :param dataset: An iterable of indexable records.

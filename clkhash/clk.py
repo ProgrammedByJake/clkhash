@@ -28,7 +28,7 @@ def hash_and_serialize_chunk(chunk_pii_data,  # type: Sequence[Sequence[str]]
                              keys,  # type: Sequence[Sequence[bytes]]
                              schema  # type: Schema
                              ):
-    # type: (...) -> Tuple[List[str], Sequence[int]]
+    # type: (...) -> Tuple[List[str], Sequence[int], List[str]]
     """
     Generate Bloom filters (ie hash) from chunks of PII then serialize
     the generated Bloom filters. It also computes and outputs the Hamming weight (or popcount) -- the number of bits
@@ -38,14 +38,17 @@ def hash_and_serialize_chunk(chunk_pii_data,  # type: Sequence[Sequence[str]]
     :param keys: A tuple of two lists of secret keys used in the HMAC.
     :param Schema schema: Schema specifying the entry formats and
             hashing settings.
-    :return: A list of serialized Bloom filters and a list of corresponding popcounts
+    :return: A list of serialized Bloom filters, a list of corresponding
+             popcounts, and a list of corresponding missing_value masks.
     """
     clk_data = []
     clk_popcounts = []
+    clk_mv_masks = []
     for clk in stream_bloom_filters(chunk_pii_data, keys, schema):
         clk_data.append(serialize_bitarray(clk[0]).strip())
         clk_popcounts.append(clk[2])
-    return clk_data, clk_popcounts
+        clk_mv_masks.append(serialize_bitarray(clk[1]).strip())
+    return clk_data, clk_popcounts, clk_mv_masks
 
 
 def generate_clk_from_csv(input_f,  # type: TextIO
@@ -55,7 +58,7 @@ def generate_clk_from_csv(input_f,  # type: TextIO
                           header=True,  # type: Union[bool, AnyStr]
                           progress_bar=True  # type: bool
                           ):
-    # type: (...) -> List[str]
+    # type: (...) -> Tuple[List[str], List[str]]
     """ Generate Bloom filters from CSV file, then serialise them.
 
         This function also computes and outputs the Hamming weight
@@ -110,19 +113,19 @@ def generate_clk_from_csv(input_f,  # type: TextIO
                 pbar.set_postfix(mean=stats.mean(), std=stats.std(), refresh=False)
                 pbar.update(tics)
 
-            results = generate_clks(pii_data,
-                                    schema,
-                                    keys,
-                                    validate=validate,
-                                    callback=callback)
+            results, mv_masks = generate_clks(pii_data,
+                                              schema,
+                                              keys,
+                                              validate=validate,
+                                              callback=callback)
     else:
-        results = generate_clks(pii_data,
-                                schema,
-                                keys,
-                                validate=validate)
+        results, mv_masks = generate_clks(pii_data,
+                                          schema,
+                                          keys,
+                                          validate=validate)
 
     log.info("Hashing took {:.2f} seconds".format(time.time() - start_time))
-    return results
+    return results, mv_masks
 
 
 def generate_clks(pii_data,  # type: Sequence[Sequence[str]]
@@ -131,7 +134,7 @@ def generate_clks(pii_data,  # type: Sequence[Sequence[str]]
                   validate=True,  # type: bool
                   callback=None  # type: Optional[Callable[[int, Sequence[int]], None]]
                   ):
-    # type: (...) -> List[str]
+    # type: (...) -> Tuple[List[str], List[str]]
 
     # generate two keys for each identifier
     key_lists = generate_key_lists(
@@ -166,11 +169,13 @@ def generate_clks(pii_data,  # type: Sequence[Sequence[str]]
             futures.append(future)
 
         results = []
+        masks = []
         for future in futures:
-            clks, clk_stats = future.result()
+            clks, clk_stats, mv_masks = future.result()
             results.extend(clks)
+            masks.extend(mv_masks)
 
-    return results
+    return results, masks
 
 
 T = TypeVar('T')  # Declare generic type variable
