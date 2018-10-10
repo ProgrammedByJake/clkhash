@@ -64,6 +64,7 @@ install:
         pyenv install $PYV
         pyenv global $PYV
     fi
+  - python --version
   - if [ "${MYPY_TYPING}" == "1" ]; then travis_retry pip install mypy; fi
   - travis_retry pip install codecov
   - travis_retry pip install -r requirements.txt
