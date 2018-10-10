@@ -52,6 +52,7 @@ matrix:
         - PYV=3.7.0
 
 install:
+  - echo $TRAVIS_OS_NAME
   - |
     if [[ $TRAVIS_OS_NAME == 'osx' ]]; then
         brew update
