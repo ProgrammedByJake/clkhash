@@ -34,16 +34,35 @@ matrix:
     # Thus we will leave this in, until it breaks one day, at which point we
     # will probably remove testing on OSX if it is not supported then.
     - os: osx
-      osx_image: xcode8.3
-      python: "3.6-dev"
+      language: generic
+      env:
+        # Latest Python 2.7 from Homebrew
+        - PYV=2.7.15
     - os: osx
-      osx_image: xcode8.3
-      python: "3.7"
+      language: generic
+      env:
+        - PYV=3.5.6
     - os: osx
-      osx_image: xcode8.3
-      python: "nightly"
+      language: generic
+      env:
+        - PYV=3.6.6
+    - os: osx
+      language: generic
+      env:
+        - PYV=3.7.0
 
 install:
+  - |
+    if [[ $TRAVIS_OS_NAME == 'osx' ]]; then
+        brew update
+        if ! brew list --versions pyenv >/dev/null; then
+            brew install pyenv
+        elif ! brew outdated pyenv; then
+            brew upgrade pyenv
+        fi
+        pyenv install $PYV
+        pyenv global $PYV
+    fi
   - if [ "${MYPY_TYPING}" == "1" ]; then travis_retry pip install mypy; fi
   - travis_retry pip install codecov
   - travis_retry pip install -r requirements.txt
